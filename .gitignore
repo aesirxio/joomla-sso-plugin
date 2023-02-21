@@ -1,0 +1,7 @@
+#*
+node_modules
+dist
+!dist/index.html
+!media/plg_system_concordium/*
+!plugins/system
+!gulpfile.js
