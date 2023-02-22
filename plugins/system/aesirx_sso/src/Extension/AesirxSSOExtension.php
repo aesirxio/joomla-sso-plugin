@@ -110,22 +110,14 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		// Set the "don't load again" flag
 		$this->injectedCSSandJS = true;
 
-		//$this->getApplication()->loadDocument();
-		$doc = $this->getApplication()->getDocument();
-		$wa  = $doc->getWebAssetManager();
-
-		if (!$wa->assetExists('script', 'plg_system_aesirx_sso.sso'))
-		{
-			$wa->registerScript('plg_system_aesirx_sso.sso', 'plg_system_aesirx_sso/sso.js', [], ['defer' => true], ['core']);
-		}
+		$wa = $this->getApplication()->getDocument()->getWebAssetManager();
 
 		if (!$wa->assetExists('script', 'plg_system_aesirx_sso.login'))
 		{
 			$wa->registerScript('plg_system_aesirx_sso.login', 'plg_system_aesirx_sso/login.js', [], ['defer' => true], ['core']);
 		}
 
-		$wa->useScript('plg_system_aesirx_sso.sso')
-			->useScript('plg_system_aesirx_sso.login');
+		$wa->useScript('plg_system_aesirx_sso.login');
 
 		$provider = $this->getProvider();
 
@@ -601,6 +593,27 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			return;
 		}
 
+        $app = $this->getApplication();
+		$userXrefTable = new UserXrefTable($this->getDatabase());
+
+        if ($userXrefTable->load(['user_id' => $userId]))
+        {
+            if ($userXrefTable->get('aesirx_id') == $remoteUserId)
+            {
+	            $app->getSession()->set('plg_system_aesirx_login.user_id', $userId);
+
+                return;
+            }
+            else
+            {
+	            $app->getSession()->set('plg_system_aesirx_login.remote_user_id');
+	            $app->enqueueMessage(Text::_('PLG_SYSTEM_AESIRX_SSO_ACCOUNT_NOT_LINKED'), 'warning');
+
+	            // If current user already assigned to another aesirx account then do nothing
+	            return;
+            }
+        }
+
 		$userXrefTable = new UserXrefTable($this->getDatabase());
 
 		if (!$userXrefTable->load(['aesirx_id' => $remoteUserId]))
@@ -619,8 +632,8 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			throw new Exception($userXrefTable->getError());
 		}
 
-		$this->getApplication()->getSession()->set('plg_system_aesirx_login.user_id', $userId);
-		$this->getApplication()->enqueueMessage(Text::_('PLG_SYSTEM_AESIRX_SSO_ACCOUNT_LINKED'));
+		$app->getSession()->set('plg_system_aesirx_login.user_id', $userId);
+		$app->enqueueMessage(Text::_('PLG_SYSTEM_AESIRX_SSO_ACCOUNT_LINKED'));
 	}
 
 	/**

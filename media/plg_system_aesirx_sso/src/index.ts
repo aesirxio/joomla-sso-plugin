@@ -1,4 +1,5 @@
 import axios, {AxiosError, AxiosResponse} from "axios";
+import {aesirxSSO} from "aesirx-sso";
 
 interface JoomlaText {
     _(key: string, def?: string | undefined): string,
@@ -129,6 +130,8 @@ export async function run() {
             }
         }
     }
+
+    await aesirxSSO();
 
     buttons.apply(btn => {
         btn.addEventListener(
