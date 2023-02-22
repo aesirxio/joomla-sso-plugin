@@ -22,10 +22,7 @@
     "webpack-cli": "^5.0.1"
   },
   "dependencies": {
-    "aesirx-sso": "git+https://github.com/vietredweb/sso.git#develop",
     "axios": "^1.2.6",
-    "stream-browserify": "^3.0.0",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.1"
+    "stream-browserify": "^3.0.0"
   }
 }
