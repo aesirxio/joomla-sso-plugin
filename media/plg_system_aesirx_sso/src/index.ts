@@ -57,7 +57,9 @@ class LoginButtons {
 }
 
 interface AesirxResponse {
-    access_token: string
+    access_token?: string
+    error?: string
+    error_description?: string
 }
 
 export async function run() {
@@ -83,6 +85,14 @@ export async function run() {
             }
 
             try {
+                if (response.error) {
+                    if (response.error_description) {
+                        throw new Error(response.error_description)
+                    } else {
+                        throw new Error
+                    }
+                }
+
                 const res: AxiosResponse<JoomlaJson<AuthJson>> = await axios<JoomlaJson<AuthJson>>({
                     method: 'post',
                     url: rootUri + 'index.php?option=aesirx_login&task=auth',
@@ -109,8 +119,10 @@ export async function run() {
                 if (e instanceof AxiosError
                     && e.response && e.response.data && e.response.data.message) {
                     btn.changeContent(e.response.data.message)
+                } else if (e instanceof Error && e.message) {
+                    btn.changeContent(e.message)
                 } else {
-                    btn.changeContent(Joomla.Text._('PLG_SYSTEM_CONCORDIUM_WALLET_REJECT'))
+                    btn.changeContent(Joomla.Text._('PLG_SYSTEM_AESIRX_SSO_REJECT'))
                 }
 
                 btn.disabled = false
