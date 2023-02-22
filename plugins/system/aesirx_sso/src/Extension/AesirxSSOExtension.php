@@ -32,6 +32,7 @@ use Joomla\CMS\User\User;
 use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseAwareTrait;
 use Joomla\Database\ParameterType;
+use Joomla\DI\ContainerAwareTrait;
 use Joomla\Event\DispatcherInterface;
 use Joomla\Event\Event;
 use Joomla\Event\SubscriberInterface;
@@ -126,6 +127,8 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		// (e.g. state).
 		$provider->getAuthorizationUrl();
 
+		$state = $this->getApplication()->getName() . '-' . $provider->getState();
+
 		// Get the state generated for you and store it to the session.
 		$this->getApplication()->getSession()
 			->set('plg_system_aesirx_login.oauth2state', $provider->getState());
@@ -134,7 +137,7 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			'
 			window.aesirxEndpoint="' . $this->params->get('endpoint') . '";
 			window.aesirxClientID="' . $this->params->get('client_id') . '";
-			window.aesirxSSOState="' . $provider->getState() . '";
+			window.aesirxSSOState="' . $state . '";
 			',
 			['position' => 'before'], [], ['plg_system_aesirx_sso.login']
 		);
@@ -225,40 +228,61 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		$session = $app->getSession();
 		$state   = $input->getString('state');
 
-		if (!empty($state)
-			&& $state == $session->get('plg_system_aesirx_login.oauth2state'))
+		if (!empty($state))
 		{
-			$code = $input->getString('code');
+			list($clientName, $rawState) = explode('-', $state);
 
-            if (!empty($code))
-            {
-	            $accessToken = $this->getProvider()->getAccessToken('authorization_code', [
-		            'code' => $code,
-	            ]);
-
-	            $app->getSession()
-		            ->set('plg_system_aesirx_login.oauth2state', null);
-
-	            $response = array_replace(
-		            $accessToken->getValues(),
-		            $accessToken->jsonSerialize()
-	            );
-            }
-			else
+            // We are in different session folder
+			if ($clientName != $app->getName())
 			{
-                $response = [
-                    'error' => $input->getString('error'),
-                    'error_description' => $input->getString('error_description'),
-                ];
-			}
+				$uri = Uri::getInstance();
 
-			?>
-            <script>
-                window.opener.sso_response = <?php echo json_encode($response) ?>;
-                window.close();
-            </script>
-			<?php
-			$app->close();
+				switch ($clientName)
+				{
+					case 'site':
+						$uri->setPath('');
+						break;
+					default:
+						$uri->setPath('/' . $clientName);
+						break;
+				}
+
+				$app->redirect($uri->toString());
+			}
+            elseif ($rawState == $session->get('plg_system_aesirx_login.oauth2state'))
+			{
+				$code = $input->getString('code');
+
+				if (!empty($code))
+				{
+					$accessToken = $this->getProvider()->getAccessToken('authorization_code', [
+						'code' => $code,
+					]);
+
+					$app->getSession()
+						->set('plg_system_aesirx_login.oauth2state', null);
+
+					$response = array_replace(
+						$accessToken->getValues(),
+						$accessToken->jsonSerialize()
+					);
+				}
+				else
+				{
+					$response = [
+						'error'             => $input->getString('error'),
+						'error_description' => $input->getString('error_description'),
+					];
+				}
+
+				?>
+                <script>
+                    window.opener.sso_response = <?php echo json_encode($response) ?>;
+                    window.close();
+                </script>
+				<?php
+				$app->close();
+			}
 		}
 
 		if ($input->getString('option') != 'aesirx_login')
@@ -593,26 +617,26 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			return;
 		}
 
-        $app = $this->getApplication();
+		$app           = $this->getApplication();
 		$userXrefTable = new UserXrefTable($this->getDatabase());
 
-        if ($userXrefTable->load(['user_id' => $userId]))
-        {
-            if ($userXrefTable->get('aesirx_id') == $remoteUserId)
-            {
-	            $app->getSession()->set('plg_system_aesirx_login.user_id', $userId);
+		if ($userXrefTable->load(['user_id' => $userId]))
+		{
+			if ($userXrefTable->get('aesirx_id') == $remoteUserId)
+			{
+				$app->getSession()->set('plg_system_aesirx_login.user_id', $userId);
 
-                return;
-            }
-            else
-            {
-	            $app->getSession()->set('plg_system_aesirx_login.remote_user_id');
-	            $app->enqueueMessage(Text::_('PLG_SYSTEM_AESIRX_SSO_ACCOUNT_NOT_LINKED'), 'warning');
+				return;
+			}
+			else
+			{
+				$app->getSession()->set('plg_system_aesirx_login.remote_user_id');
+				$app->enqueueMessage(Text::_('PLG_SYSTEM_AESIRX_SSO_ACCOUNT_NOT_LINKED'), 'warning');
 
-	            // If current user already assigned to another aesirx account then do nothing
-	            return;
-            }
-        }
+				// If current user already assigned to another aesirx account then do nothing
+				return;
+			}
+		}
 
 		$userXrefTable = new UserXrefTable($this->getDatabase());
 

@@ -1,10 +1,10 @@
 {
   "name": "aesirx/sso_login",
   "description": "",
-  "minimum-stability": "dev",
+  "minimum-stability": "stable",
   "license": "proprietary",
   "authors": [],
   "require": {
-    "league/oauth2-client": "dev-master"
+    "league/oauth2-client": "^2.6.1"
   }
 }
