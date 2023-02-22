@@ -1,4 +1,4 @@
-# joomla-concordium-login-plugin
+# joomla-aesirx-login-plugin
 
 `npm i` - init libs
 

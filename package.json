@@ -1,7 +1,7 @@
 {
-  "name": "concordium_login",
+  "name": "aesirx_login",
   "version": "1.0.0",
-  "description": "Login via concordium",
+  "description": "Login via aesirx",
   "private": true,
   "type": "commonjs",
   "scripts": {

@@ -24,17 +24,17 @@ interface JoomlaJson<T> {
 // @ts-ignore
 const Joomla: JoomlaInterface = window.Joomla
 
-interface ConcordiumButton extends HTMLButtonElement {
+interface AesirxButton extends HTMLButtonElement {
     changeContent(value: string, divSelector?: string): void
 }
 
 class LoginButtons {
-    private buttons: HTMLCollectionOf<ConcordiumButton>;
+    private buttons: HTMLCollectionOf<AesirxButton>;
 
     constructor(className: string) {
         // @ts-ignore
         this.buttons = document.getElementsByClassName(className)
-        this.apply(function (n: ConcordiumButton) {
+        this.apply(function (n: AesirxButton) {
             n.innerHTML = n.innerHTML.replace(
                 Joomla.Text._('PLG_SYSTEM_AESIRX_SSO_LOGIN_LABEL'),
                 '<span class="aesirxLoginButtonMessage">' + Joomla.Text._('PLG_SYSTEM_AESIRX_SSO_LOGIN_LABEL') + '</span>');
@@ -49,7 +49,7 @@ class LoginButtons {
         })
     }
 
-    public apply(callback: (n: ConcordiumButton) => void) {
+    public apply(callback: (n: AesirxButton) => void) {
         for (var i = 0; i < this.buttons.length; i++) {
             callback(this.buttons[i])
         }
@@ -68,7 +68,7 @@ export async function run() {
     // @ts-ignore
     const rootUri: string = Joomla.getOptions('system.paths').baseFull;
 
-    const onGetData = (btn: ConcordiumButton) => {
+    const onGetData = (btn: AesirxButton) => {
         return async (response: AesirxResponse) => {
             btn.disabled = false
             const returnInput = btn.form?.querySelector('input[name="return"]')
