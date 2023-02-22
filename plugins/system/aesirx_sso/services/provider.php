@@ -1,7 +1,7 @@
 <?php
 /**
  * @package     AesirX.Plugin
- * @subpackage  System.Concordium
+ * @subpackage  System.AesirXLogin
  *
  * @copyright   Copyright (C) 2016 - 2023 Aesir. All rights reserved.
  * @license     GNU General Public License version 2 or later; see LICENSE

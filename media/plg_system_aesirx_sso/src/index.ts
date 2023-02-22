@@ -1,4 +1,5 @@
 import axios, {AxiosError, AxiosResponse} from "axios";
+import {aesirxSSO} from "aesirx-sso";
 
 interface JoomlaText {
     _(key: string, def?: string | undefined): string,
@@ -24,17 +25,17 @@ interface JoomlaJson<T> {
 // @ts-ignore
 const Joomla: JoomlaInterface = window.Joomla
 
-interface ConcordiumButton extends HTMLButtonElement {
+interface AesirxButton extends HTMLButtonElement {
     changeContent(value: string, divSelector?: string): void
 }
 
 class LoginButtons {
-    private buttons: HTMLCollectionOf<ConcordiumButton>;
+    private buttons: HTMLCollectionOf<AesirxButton>;
 
     constructor(className: string) {
         // @ts-ignore
         this.buttons = document.getElementsByClassName(className)
-        this.apply(function (n: ConcordiumButton) {
+        this.apply(function (n: AesirxButton) {
             n.innerHTML = n.innerHTML.replace(
                 Joomla.Text._('PLG_SYSTEM_AESIRX_SSO_LOGIN_LABEL'),
                 '<span class="aesirxLoginButtonMessage">' + Joomla.Text._('PLG_SYSTEM_AESIRX_SSO_LOGIN_LABEL') + '</span>');
@@ -49,7 +50,7 @@ class LoginButtons {
         })
     }
 
-    public apply(callback: (n: ConcordiumButton) => void) {
+    public apply(callback: (n: AesirxButton) => void) {
         for (var i = 0; i < this.buttons.length; i++) {
             callback(this.buttons[i])
         }
@@ -57,7 +58,9 @@ class LoginButtons {
 }
 
 interface AesirxResponse {
-    access_token: string
+    access_token?: string
+    error?: string
+    error_description?: string
 }
 
 export async function run() {
@@ -66,7 +69,7 @@ export async function run() {
     // @ts-ignore
     const rootUri: string = Joomla.getOptions('system.paths').baseFull;
 
-    const onGetData = (btn: ConcordiumButton) => {
+    const onGetData = (btn: AesirxButton) => {
         return async (response: AesirxResponse) => {
             btn.disabled = false
             const returnInput = btn.form?.querySelector('input[name="return"]')
@@ -83,6 +86,14 @@ export async function run() {
             }
 
             try {
+                if (response.error) {
+                    if (response.error_description) {
+                        throw new Error(response.error_description)
+                    } else {
+                        throw new Error
+                    }
+                }
+
                 const res: AxiosResponse<JoomlaJson<AuthJson>> = await axios<JoomlaJson<AuthJson>>({
                     method: 'post',
                     url: rootUri + 'index.php?option=aesirx_login&task=auth',
@@ -109,14 +120,18 @@ export async function run() {
                 if (e instanceof AxiosError
                     && e.response && e.response.data && e.response.data.message) {
                     btn.changeContent(e.response.data.message)
+                } else if (e instanceof Error && e.message) {
+                    btn.changeContent(e.message)
                 } else {
-                    btn.changeContent(Joomla.Text._('PLG_SYSTEM_CONCORDIUM_WALLET_REJECT'))
+                    btn.changeContent(Joomla.Text._('PLG_SYSTEM_AESIRX_SSO_REJECT'))
                 }
 
                 btn.disabled = false
             }
         }
     }
+
+    await aesirxSSO();
 
     buttons.apply(btn => {
         btn.addEventListener(

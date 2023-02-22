@@ -32,6 +32,7 @@ use Joomla\CMS\User\User;
 use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseAwareTrait;
 use Joomla\Database\ParameterType;
+use Joomla\DI\ContainerAwareTrait;
 use Joomla\Event\DispatcherInterface;
 use Joomla\Event\Event;
 use Joomla\Event\SubscriberInterface;
@@ -61,6 +62,9 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 	 * @since   __DEPLOY_VERSION__
 	 */
 	private $injectedCSSandJS = false;
+
+	/** @var GenericProvider|null */
+	protected $provider;
 
 	/**
 	 * Constructor
@@ -107,28 +111,33 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		// Set the "don't load again" flag
 		$this->injectedCSSandJS = true;
 
-		//$this->getApplication()->loadDocument();
-		$doc = $this->getApplication()->getDocument();
-		$wa  = $doc->getWebAssetManager();
-
-		if (!$wa->assetExists('script', 'plg_system_aesirx_sso.sso'))
-		{
-			$wa->registerScript('plg_system_aesirx_sso.sso', 'plg_system_aesirx_sso/sso.js', [], ['defer' => true], ['core']);
-		}
+		$wa = $this->getApplication()->getDocument()->getWebAssetManager();
 
 		if (!$wa->assetExists('script', 'plg_system_aesirx_sso.login'))
 		{
 			$wa->registerScript('plg_system_aesirx_sso.login', 'plg_system_aesirx_sso/login.js', [], ['defer' => true], ['core']);
 		}
 
-		$wa->useScript('plg_system_aesirx_sso.sso')
-			->useScript('plg_system_aesirx_sso.login');
+		$wa->useScript('plg_system_aesirx_sso.login');
+
+		$provider = $this->getProvider();
+
+		// Fetch the authorization URL from the provider; this returns the
+		// urlAuthorize option and generates and applies any necessary parameters
+		// (e.g. state).
+		$provider->getAuthorizationUrl();
+
+		$state = $this->getApplication()->getName() . '-' . $provider->getState();
+
+		// Get the state generated for you and store it to the session.
+		$this->getApplication()->getSession()
+			->set('plg_system_aesirx_login.oauth2state', $provider->getState());
 
 		$wa->addInlineScript(
 			'
 			window.aesirxEndpoint="' . $this->params->get('endpoint') . '";
-			window.aesirxClientSecret="' . $this->params->get('client_secret') . '";
 			window.aesirxClientID="' . $this->params->get('client_id') . '";
+			window.aesirxSSOState="' . $state . '";
 			',
 			['position' => 'before'], [], ['plg_system_aesirx_sso.login']
 		);
@@ -136,6 +145,7 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		Text::script('PLG_SYSTEM_AESIRX_SSO_LOGIN_LABEL');
 		Text::script('PLG_SYSTEM_AESIRX_SSO_REDIRECTING');
 		Text::script('PLG_SYSTEM_AESIRX_SSO_PROCESSING');
+		Text::script('PLG_SYSTEM_AESIRX_SSO_REJECT');
 	}
 
 	/**
@@ -181,19 +191,30 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		]);
 	}
 
-	public function onAfterDispatch(): void
+	/**
+	 *
+	 * @return GenericProvider
+	 *
+	 * @since __DEPLOY_VERSION__
+	 */
+	protected function getProvider(): GenericProvider
 	{
-		$app   = $this->getApplication();
-		$input = $app->input;
-
-		$code  = $input->getString('code');
-		$state = $input->getString('state');
-
-		if (!empty($code)
-			&& !empty($state))
+		if (is_null($this->provider))
 		{
-			$this->addLoginCSSAndJavascript();
+			require_once JPATH_PLUGINS . '/system/aesirx_sso/vendor/autoload.php';
+			$domain = rtrim($this->params->get('endpoint'), ' /') . '/index.php?api=oauth2&option=';
+
+			$this->provider = new GenericProvider([
+				'clientId'                => $this->params->get('client_id'),
+				'clientSecret'            => $this->params->get('client_secret'),
+				'redirectUri'             => Uri::getInstance()->toString(),
+				'urlAuthorize'            => $domain . 'authorize',
+				'urlAccessToken'          => $domain . 'token',
+				'urlResourceOwnerDetails' => $domain . 'profile',
+			]);
 		}
+
+		return $this->provider;
 	}
 
 	/**
@@ -202,8 +223,67 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 	 */
 	public function onAfterRoute(): void
 	{
-		$app   = $this->getApplication();
-		$input = $app->input;
+		$app     = $this->getApplication();
+		$input   = $app->input;
+		$session = $app->getSession();
+		$state   = $input->getString('state');
+
+		if (!empty($state))
+		{
+			list($clientName, $rawState) = explode('-', $state);
+
+            // We are in different session folder
+			if ($clientName != $app->getName())
+			{
+				$uri = Uri::getInstance();
+
+				switch ($clientName)
+				{
+					case 'site':
+						$uri->setPath('');
+						break;
+					default:
+						$uri->setPath('/' . $clientName);
+						break;
+				}
+
+				$app->redirect($uri->toString());
+			}
+            elseif ($rawState == $session->get('plg_system_aesirx_login.oauth2state'))
+			{
+				$code = $input->getString('code');
+
+				if (!empty($code))
+				{
+					$accessToken = $this->getProvider()->getAccessToken('authorization_code', [
+						'code' => $code,
+					]);
+
+					$app->getSession()
+						->set('plg_system_aesirx_login.oauth2state', null);
+
+					$response = array_replace(
+						$accessToken->getValues(),
+						$accessToken->jsonSerialize()
+					);
+				}
+				else
+				{
+					$response = [
+						'error'             => $input->getString('error'),
+						'error_description' => $input->getString('error_description'),
+					];
+				}
+
+				?>
+                <script>
+                    window.opener.sso_response = <?php echo json_encode($response) ?>;
+                    window.close();
+                </script>
+				<?php
+				$app->close();
+			}
+		}
 
 		if ($input->getString('option') != 'aesirx_login')
 		{
@@ -215,8 +295,6 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			throw new Exception('Permission denied');
 		}
 
-		require_once JPATH_PLUGINS . '/system/aesirx_sso/vendor/autoload.php';
-
 		$result = [];
 
 		header('Content-Type: application/json; charset=utf-8');
@@ -227,24 +305,14 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			switch ($input->get('task'))
 			{
 				case 'auth':
-					$domain   = rtrim($this->params->get('endpoint'), ' /') . '/index.php?api=oauth2&option=';
-					$provider = new GenericProvider([
-						'clientId'                => $this->params->get('client_id'),
-						'clientSecret'            => $this->params->get('client_secret'),
-						'redirectUri'             => Uri::getInstance()->toString(),
-						'urlAuthorize'            => $domain . 'authorize',
-						'urlAccessToken'          => $domain . 'token',
-						'urlResourceOwnerDetails' => $domain . 'profile',
-					]);
-
 					$accessToken   = $input->post->get('access_token', [], 'array');
 					$return        = base64_decode($input->post->get('return', '', 'BASE64'));
 					$remember      = $input->post->getBool('remember', false);
-					$resourceOwner = $provider->getResourceOwner(new AccessToken($accessToken))->toArray();
+					$resourceOwner = $this->getProvider()->getResourceOwner(new AccessToken($accessToken))->toArray();
 					$remoteUserId  = $resourceOwner['profile']['id'];
 
-					$app->getSession()->set('plg_system_aesirx_login.remote_user_id', $remoteUserId);
-					$app->getSession()->set('plg_system_aesirx_login.remote_profile', $resourceOwner['profile']);
+					$session->set('plg_system_aesirx_login.remote_user_id', $remoteUserId);
+					$session->set('plg_system_aesirx_login.remote_profile', $resourceOwner['profile']);
 
 					Log::add(sprintf('Calling auth for %s', $accessToken['access_token']), Log::INFO, 'aesirx_sso.system');
 
@@ -305,7 +373,7 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 									}
 								}
 							}
-							elseif (!Uri::isInternal($return))
+                            elseif (!Uri::isInternal($return))
 							{
 								// Don't redirect to an external URL.
 								$return = '';
@@ -343,7 +411,7 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 						if (in_array(false, $results, true) === false)
 						{
 							// Set the user in the session, letting Joomla! know that we are logged in.
-							$app->getSession()->set('user', $instance);
+							$session->set('user', $instance);
 
 							// Trigger the onUserAfterLogin event
 							$options['user']         = $instance;
@@ -549,6 +617,27 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			return;
 		}
 
+		$app           = $this->getApplication();
+		$userXrefTable = new UserXrefTable($this->getDatabase());
+
+		if ($userXrefTable->load(['user_id' => $userId]))
+		{
+			if ($userXrefTable->get('aesirx_id') == $remoteUserId)
+			{
+				$app->getSession()->set('plg_system_aesirx_login.user_id', $userId);
+
+				return;
+			}
+			else
+			{
+				$app->getSession()->set('plg_system_aesirx_login.remote_user_id');
+				$app->enqueueMessage(Text::_('PLG_SYSTEM_AESIRX_SSO_ACCOUNT_NOT_LINKED'), 'warning');
+
+				// If current user already assigned to another aesirx account then do nothing
+				return;
+			}
+		}
+
 		$userXrefTable = new UserXrefTable($this->getDatabase());
 
 		if (!$userXrefTable->load(['aesirx_id' => $remoteUserId]))
@@ -567,8 +656,8 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			throw new Exception($userXrefTable->getError());
 		}
 
-		$this->getApplication()->getSession()->set('plg_system_aesirx_login.user_id', $userId);
-		$this->getApplication()->enqueueMessage(Text::_('PLG_SYSTEM_AESIRX_SSO_ACCOUNT_LINKED'));
+		$app->getSession()->set('plg_system_aesirx_login.user_id', $userId);
+		$app->enqueueMessage(Text::_('PLG_SYSTEM_AESIRX_SSO_ACCOUNT_LINKED'));
 	}
 
 	/**
@@ -633,7 +722,6 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			'onContentPrepareForm' => 'onContentPrepareForm',
 			'onUserLoginButtons'   => 'onUserLoginButtons',
 			'onAfterRoute'         => 'onAfterRoute',
-			'onAfterDispatch'      => 'onAfterDispatch',
 			'onUserLogout'         => 'onUserLogout',
 			'onUserLogin'          => 'onUserLogin',
 		];
