@@ -16,7 +16,7 @@ function moveMediaFolderTask() {
 
 function movePluginFolderTask() {
     return gulp.src([
-        './plugins/system/concordium/**',
+        './plugins/system/aesirx_sso/**',
     ]).pipe(gulp.dest('./dist/plugin'))
 }
 
