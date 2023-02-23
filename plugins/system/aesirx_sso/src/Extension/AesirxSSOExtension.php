@@ -207,7 +207,6 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			$this->provider = new GenericProvider([
 				'clientId'                => $this->params->get('client_id'),
 				'clientSecret'            => $this->params->get('client_secret'),
-				'redirectUri'             => Uri::getInstance()->toString(),
 				'urlAuthorize'            => $domain . 'authorize',
 				'urlAccessToken'          => $domain . 'token',
 				'urlResourceOwnerDetails' => $domain . 'profile',
@@ -227,10 +226,21 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		$input   = $app->input;
 		$session = $app->getSession();
 		$state   = $input->getString('state');
+		$error   = $input->getString('error');
+		$code    = $input->getString('code');
 
-		if (!empty($state))
+		if (!empty($state)
+            && (!empty($error) || !empty($code)))
 		{
-			list($clientName, $rawState) = explode('-', $state);
+            $elements = explode('-', $state);
+
+            if (count($elements) < 2
+                || strlen($elements[1]) != 32)
+            {
+                return;
+            }
+
+			list($clientName, $rawState) = $elements;
 
             // We are in different session folder
 			if ($clientName != $app->getName())
@@ -251,8 +261,6 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			}
             elseif ($rawState == $session->get('plg_system_aesirx_login.oauth2state'))
 			{
-				$code = $input->getString('code');
-
 				if (!empty($code))
 				{
 					$accessToken = $this->getProvider()->getAccessToken('authorization_code', [
@@ -270,7 +278,7 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 				else
 				{
 					$response = [
-						'error'             => $input->getString('error'),
+						'error'             => $error,
 						'error_description' => $input->getString('error_description'),
 					];
 				}
@@ -643,12 +651,6 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		if (!$userXrefTable->load(['aesirx_id' => $remoteUserId]))
 		{
 			throw new Exception(Text::_('PLG_SYSTEM_AESIRX_SSO_AESIRX_SSO_ACCOUNT_NOT_FOUND'));
-		}
-
-		// Once user assigned then do not override it
-		if ($userXrefTable->get('user_id'))
-		{
-			return;
 		}
 
 		if (!$userXrefTable->save(['user_id' => $userId]))
