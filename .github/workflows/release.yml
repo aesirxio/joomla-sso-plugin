@@ -11,14 +11,14 @@ jobs:
     container:
       image: shivammathur/node:latest-i386
       volumes:
-        ./:/app
+        ${{ github.workspace }}:/app
     steps:
       - name: Install PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '7.2'
       - run: ls
-      - run: cd /app
+      - run: cd /app && ls
       - run: npm i
       - run: npm run build
       - name: Release
