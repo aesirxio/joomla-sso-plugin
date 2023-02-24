@@ -14,14 +14,20 @@ jobs:
 #      volumes:
 #        - ${{ github.workspace }}:/app
     steps:
+      - name: Checkout
+        uses: actions/checkout@v3
       - name: Install PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '7.2'
-      - run: ls
-      - run: cd ../ && ls
-      - run: cd ../../ && ls
-      - run: cd ../../../ && ls
+#      - run: ls
+#      - run: cd ../ && ls
+#      - run: cd ../../ && ls
+#      - run: cd ../../../ && ls
+      - name: Install Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '16'
 #      - run: cd /app && ls
       - run: npm i
       - run: npm run build
