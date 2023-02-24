@@ -9,8 +9,8 @@ on: push
 jobs:
   run:
     runs-on: ubuntu-latest
-    container:
-      image: shivammathur/node:latest-i386
+#    container:
+#      image: shivammathur/node:latest-i386
 #      volumes:
 #        - ${{ github.workspace }}:/app
     steps:
