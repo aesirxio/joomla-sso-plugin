@@ -1,0 +1,23 @@
+name: "release"
+
+on:
+  push:
+    tags:
+      - "*"
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    container: shivammathur/node:latest-i386
+    steps:
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.2'
+      - run: npm i
+      - run: npm run build
+      - name: Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "dist/plg_system_aesirx_sso.zip"
+          generateReleaseNotes: true
