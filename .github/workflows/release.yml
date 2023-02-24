@@ -1,24 +1,28 @@
 name: "release"
 
-on:
-  push:
-    tags:
-      - "*"
+#on:
+#  push:
+#    tags:
+#      - "*"
+on: push
 
 jobs:
   run:
     runs-on: ubuntu-latest
     container:
       image: shivammathur/node:latest-i386
-      volumes:
-        - ${{ github.workspace }}:/app
+#      volumes:
+#        - ${{ github.workspace }}:/app
     steps:
       - name: Install PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '7.2'
       - run: ls
-      - run: cd /app && ls
+      - run: cd ../ && ls
+      - run: cd ../../ && ls
+      - run: cd ../../../ && ls
+#      - run: cd /app && ls
       - run: npm i
       - run: npm run build
       - name: Release
