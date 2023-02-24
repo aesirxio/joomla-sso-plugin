@@ -36,6 +36,15 @@
     <config>
         <fields name="params">
             <fieldset name="basic">
+                <field name="login"
+                       type="checkboxes"
+                       required="true"
+                       checked="concordium,metamask,regular"
+                       label="PLG_SYSTEM_AESIRX_SSO_ALLOWED_LOGINS">
+                    <option value="concordium">PLG_SYSTEM_AESIRX_SSO_ALLOWED_LOGIN_CONCORDIUM</option>
+                    <option value="metamask">PLG_SYSTEM_AESIRX_SSO_ALLOWED_LOGIN_METAMASK</option>
+                    <option value="regular">PLG_SYSTEM_AESIRX_SSO_ALLOWED_LOGIN_REGULAR_LOGIN</option>
+                </field>
                 <field name="endpoint"
                        required="true"
                        default="https://api.aesirx.io"
