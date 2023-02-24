@@ -11,7 +11,7 @@ jobs:
     container:
       image: shivammathur/node:latest-i386
       volumes:
-        ${{ github.workspace }}:/app
+        - ${{ github.workspace }}:/app
     steps:
       - name: Install PHP
         uses: shivammathur/setup-php@v2
