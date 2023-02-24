@@ -8,14 +8,17 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    container: shivammathur/node:latest-i386
+    container:
+      image: shivammathur/node:latest-i386
+      volume:
+        ./:/app
     steps:
       - name: Install PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '7.2'
       - run: ls
-      - run: cd .. && ls
+      - run: cd /app
       - run: npm i
       - run: npm run build
       - name: Release
