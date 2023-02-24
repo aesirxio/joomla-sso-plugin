@@ -1,18 +1,13 @@
 name: "release"
 
-#on:
-#  push:
-#    tags:
-#      - "*"
-on: push
+on:
+  push:
+    tags:
+      - "*"
 
 jobs:
   run:
     runs-on: ubuntu-latest
-#    container:
-#      image: shivammathur/node:latest-i386
-#      volumes:
-#        - ${{ github.workspace }}:/app
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -20,15 +15,10 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '7.2'
-#      - run: ls
-#      - run: cd ../ && ls
-#      - run: cd ../../ && ls
-#      - run: cd ../../../ && ls
       - name: Install Node
         uses: actions/setup-node@v3
         with:
           node-version: '16'
-#      - run: cd /app && ls
       - run: npm i
       - run: npm run build
       - name: Release
