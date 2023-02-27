@@ -138,6 +138,7 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 			window.aesirxEndpoint="' . $this->params->get('endpoint') . '";
 			window.aesirxClientID="' . $this->params->get('client_id') . '";
 			window.aesirxSSOState="' . $state . '";
+			window.aesirxAllowedLogins=' . json_encode($this->params->get('login', ['concordium', 'metamask', 'regular'])) . ';
 			',
 			['position' => 'before'], [], ['plg_system_aesirx_sso.login']
 		);
@@ -230,19 +231,19 @@ class AesirxSSOExtension extends CMSPlugin implements SubscriberInterface
 		$code    = $input->getString('code');
 
 		if (!empty($state)
-            && (!empty($error) || !empty($code)))
+			&& (!empty($error) || !empty($code)))
 		{
-            $elements = explode('-', $state);
+			$elements = explode('-', $state);
 
-            if (count($elements) < 2
-                || strlen($elements[1]) != 32)
-            {
-                return;
-            }
+			if (count($elements) < 2
+				|| strlen($elements[1]) != 32)
+			{
+				return;
+			}
 
 			list($clientName, $rawState) = $elements;
 
-            // We are in different session folder
+			// We are in different session folder
 			if ($clientName != $app->getName())
 			{
 				$uri = Uri::getInstance();
