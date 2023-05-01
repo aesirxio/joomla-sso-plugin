@@ -10,7 +10,7 @@
     "build": "webpack --mode=production --devtool=eval && gulp zip"
   },
   "devDependencies": {
-    "@types/chrome": "^0.0.227",
+    "@types/chrome": "^0.0.234",
     "compression-webpack-plugin": "^10.0.0",
     "del": "^7.0.0",
     "gulp": "^4.0.2",
